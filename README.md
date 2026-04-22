@@ -70,7 +70,7 @@ Customer / Postman
         ▼
 ┌────────────────────────────────────────┐
 │         EXPERIENCE API  (EAPI)         │
-│  Port : 8081 (local) / CloudHub (80)   │
+│  Port : 8081 (local) / CloudHub (8081) │
 │  Path : experience/*                   │
 │  Role : Customer-facing, thin layer    │
 │  Auth : Client ID Enforcement Policy   │
@@ -80,7 +80,7 @@ Customer / Postman
         ▼
 ┌────────────────────────────────────────┐
 │         PROCESS API  (PAPI)            │
-│  Port : 8082 (local) / CloudHub (80)   │
+│  Port : 8082 (local) / CloudHub (8081) │
 │  Path : process/*                      │
 │  Role : Business logic, orchestration  │
 │  Auth : None (internal only)           │
@@ -92,7 +92,7 @@ Customer / Postman
         ▼
 ┌────────────────────────────────────────┐
 │         SYSTEM API  (SAPI)             │
-│  Port : 8083 (local) / CloudHub (80)   │
+│  Port : 8083 (local) / CloudHub (8081) │
 │  Path : system/*                       │
 │  Role : DB operations only             │
 │  Auth : None (internal only)           │
@@ -120,7 +120,7 @@ Each layer is **independently deployable** and has a **single responsibility**:
 | Component | Technology |
 |---|---|
 | Integration Platform | MuleSoft Anypoint Studio 7.x |
-| Runtime | Mule 4.6.x |
+| Runtime | Mule 4.11.x |
 | API Specification | RAML 1.0 |
 | API Design | Anypoint Design Center |
 | API Exchange | Anypoint Exchange |
@@ -584,9 +584,9 @@ requestStatus outcome          client credentials
 
 ### Prerequisites
 
-- Anypoint Studio 7.x with Mule 4.6.x runtime
+- Anypoint Studio 7.x with Mule 4.11.x runtime
 - Java 17
-- MySQL Workbench (to verify DB)
+- MySQL Workbench/command line client (to verify DB)
 - Postman
 
 ### Steps
@@ -763,16 +763,16 @@ Always deploy bottom → up:
 **1. Update properties for CloudHub**
 
 ```properties
-# CloudHub apps communicate on port 80
+# CloudHub apps communicate on port 8081
 # Update PAPI dev.properties:
 system.api.host=order-management-db-sapi-dev.cloudhub.io
-system.api.port=80
-system.api.basePath=system
+system.api.port=8081
+system.api.basePath=/system
 
 # Update EAPI dev.properties:
 process.api.host=order-management-process-api-dev.cloudhub.io
-process.api.port=80
-process.api.basePath=process
+process.api.port=8081
+process.api.basePath=/process
 ```
 
 **2. Deploy from Anypoint Studio**
@@ -782,7 +782,7 @@ Right-click project
 → Anypoint Platform → Deploy to CloudHub 2.0
 → Fill in:
   App Name    : order-management-db-sapi-dev
-  Runtime     : 4.6.x
+  Runtime     : 4.11.x
   Worker Size : 0.1 vCore
   Region      : US East
 
@@ -980,7 +980,7 @@ order-management-system/
 
 ---
 
-## 👤 Author
+## 👤 Arjya
 
 **Intern Assignment — MuleSoft Order Management System**
 Built as part of MuleSoft Developer Internship Program
