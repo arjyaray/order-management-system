@@ -1,0 +1,30 @@
+# .gitignore
+# ─────────────────────────────────────────
+# IDE and Studio files
+.mule/
+.studio/
+.settings/
+.classpath
+.project
+*.launch
+target/
+
+# Sensitive properties — NEVER commit these
+**/properties/local.properties
+**/properties/dev.properties
+**/properties/*.properties
+
+# Exception — commit template only
+!**/properties/*.properties.template
+
+# Maven
+*.class
+*.jar
+!lib/*.jar
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

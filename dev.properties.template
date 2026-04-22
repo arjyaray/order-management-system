@@ -1,0 +1,19 @@
+# dev.properties.template
+# Copy this file to dev.properties and fill in values
+
+#### HTTP Listener Config ####
+http.listener.host=0.0.0.0
+http.listener.port=YOUR_PORT
+http.listener.path=YOUR_PATH
+http.listener.readTimeout=300000
+
+#### MySQL Database Config ####
+database.host=YOUR_DB_HOST
+database.port=YOUR_DB_PORT
+database.name=YOUR_DB_NAME
+database.user=YOUR_DB_USER
+database.password=YOUR_ENCRYPTED_PASSWORD
+
+#### Secure Properties ####
+mule.secure.key=YOUR_SECURE_KEY
+mule.env=dev
