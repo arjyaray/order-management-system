@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+        http://www.mulesoft.org/schema/mule/core
+        http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http
+        http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+
+    <sub-flow name="placeOrdersExpSubFlow">
+
+        <set-variable
+            variableName="originalRequest"
+            value="#[payload]"
+            doc:name="Var-StoreOriginalRequest"/>
+
+        <logger
+            level="INFO"
+            doc:name="Log-ForwardingToProcessAPI"
+            message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[EAPI][ORDER] Forwarding to Process API'&#10;   ++ ' | phone: '   ++ (vars.originalRequest.customer.phoneNumber as String)&#10;   ++ ' | items: ' ++ (sizeOf(vars.originalRequest.items) as String)&#10;   ++ ' | correlationId: ' ++ correlationId]"/>
+
+        <http:request
+            config-ref="ProcessAPI_Request_Config"
+            path="${process.api.basePath}/orders"
+            method="POST"
+            doc:name="HTTP-ForwardToProcessAPI">
+            <http:body><![CDATA[#[vars.originalRequest]]]></http:body>
+            <http:headers><![CDATA[#[{
+                "Content-Type":     "application/json",
+                "x-correlation-id": correlationId
+            }]]]></http:headers>
+        </http:request>
+
+        <logger
+            level="INFO"
+            doc:name="Log-ResponseReceivedFromProcessAPI"
+            message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[EAPI][ORDER] Response received from Process API'&#10;   ++ ' | requestStatus: ' ++ payload.requestStatus&#10;   ++ ' | correlationId: ' ++ correlationId]"/>
+
+    </sub-flow>
+
+</mule>

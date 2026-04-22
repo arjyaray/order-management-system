@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd ">
+    <apikit:config name="order-management-db-sapi-config" api="resource::4b52cd00-ad97-4956-a3d7-70a467f5a4fc:order-management-db-sapi:1.0.0:raml:zip:order-management-db-sapi.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <flow name="order-management-db-sapi-main">
+        <http:listener path="${http.listener.path}" config-ref="HTTP_Listener_config">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body><![CDATA[#[payload]]]></http:body>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="order-management-db-sapi-config" />
+		<error-handler ref="global-error-handler" />
+    </flow>
+    <flow name="post:\customers:application\json:order-management-db-sapi-config">
+		<logger level="INFO" doc:name="cusStartLogger" doc:id="5a109782-66bd-4c67-868a-79107841fbbd" message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[SAPI][CUSTOMER] Request received | correlationId: '&#10;                   ++ correlationId]"/>
+		<flow-ref doc:name="customersFR" doc:id="8afc392f-c21c-4075-aec5-7f474697f010" name="customer-upsertSub_Flow"/>
+		<logger level="INFO" doc:name="cusEndLogger" doc:id="9afad711-6ac9-40c0-8c89-ab7e245c4688" message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[SAPI][CUSTOMER] Response Sent | correlationId: '&#10;                   ++ correlationId]"/>
+    </flow>
+    <flow name="post:\orders:application\json:order-management-db-sapi-config">
+		<logger level="INFO" doc:name="orderStartLogger" doc:id="c0dd3773-c189-4c80-988c-1f1be63972fd" message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[SAPI][ORDERS] Request received | correlationId: '&#10;   ++ correlationId]" />
+		<flow-ref doc:name="ordersFR" doc:id="ff45c5b8-898d-44d2-a39a-2cb399b7fa0c" name="order-placeSub_Flow" />
+		<logger level="INFO" doc:name="orderEndLogger" doc:id="49e592bf-97cf-4390-8230-20099f7919fe" message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[SAPI][ORDERS] Response Sent | correlationId: '&#10;                   ++ correlationId]"/>
+    </flow>
+    <flow name="post:\stock\availability:application\json:order-management-db-sapi-config">
+		<logger level="INFO" doc:name="stockStartLogger" doc:id="ed584e7f-2a2b-413f-9a87-e977dcd11d0d" message="[SAPI][STOCK] | message: inventory endpoint entered" />
+		<flow-ref doc:name="inventoryFR" doc:id="d7ee2f81-cd70-4d78-95dc-7e3e58cf8d94" name="stock-availabilitySub_Flow" />
+		<logger level="INFO" doc:name="stockEndLogger" doc:id="f0461f82-792d-4757-9df8-42782b793d13" message="[SAPI][STOCK] | message: inventory endpoint exited" />
+    </flow>
+</mule>

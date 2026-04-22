@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
+        http://www.mulesoft.org/schema/mule/core
+        http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/ee/core
+        http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+        http://www.mulesoft.org/schema/mule/http
+        http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+
+    <error-handler name="global-error-handler">
+        <on-error-propagate
+            type="APIKIT:BAD_REQUEST"
+            doc:name="Handle 400 Bad Request"
+            logException="false"
+            enableNotifications="false">
+
+            <logger
+                level="WARN"
+                doc:name="Log-400BadRequest"
+                message="#['[SAPI][ERROR] 400 Bad Request | '
+                           ++ 'message: ' ++ error.description
+                           ++ ' | correlationId: ' ++ correlationId]"/>
+
+            <ee:transform doc:name="Build-400Response">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode:     "BAD_REQUEST",
+    message:       error.description,
+    correlationId: correlationId,
+    timestamp:     now() as String
+                   {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable
+                        variableName="httpStatus"><![CDATA[400]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+
+        </on-error-propagate>
+        <on-error-propagate
+            type="APIKIT:NOT_FOUND"
+            doc:name="Handle 404 Not Found"
+            logException="false"
+            enableNotifications="false">
+
+            <logger
+                level="WARN"
+                doc:name="Log-404NotFound"
+                message="#['[SAPI][ERROR] 404 Not Found | '
+                           ++ 'path: ' ++ attributes.requestPath
+                           ++ ' | correlationId: ' ++ correlationId]"/>
+
+            <ee:transform doc:name="Build-404Response">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode:     "NOT_FOUND",
+    message:       "The requested endpoint does not exist",
+    correlationId: correlationId,
+    timestamp:     now() as String
+                   {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable
+                        variableName="httpStatus"><![CDATA[404]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+
+        </on-error-propagate>
+        <on-error-propagate
+            type="APIKIT:METHOD_NOT_ALLOWED"
+            doc:name="Handle 405 Method Not Allowed"
+            logException="false"
+            enableNotifications="false">
+
+            <logger
+                level="WARN"
+                doc:name="Log-405MethodNotAllowed"
+                message="#['[SAPI][ERROR] 405 Method Not Allowed | '
+                           ++ 'correlationId: ' ++ correlationId]"/>
+
+            <ee:transform doc:name="Build-405Response">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode:     "METHOD_NOT_ALLOWED",
+    message:       "HTTP method not allowed for this endpoint",
+    correlationId: correlationId,
+    timestamp:     now() as String
+                   {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable
+                        variableName="httpStatus"><![CDATA[405]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+
+        </on-error-propagate>
+        <on-error-propagate
+            type="APIKIT:NOT_ACCEPTABLE"
+            doc:name="Handle 406 Not Acceptable"
+            logException="false"
+            enableNotifications="false">
+
+            <ee:transform doc:name="Build-406Response">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode:     "NOT_ACCEPTABLE",
+    message:       "Requested media type is not supported",
+    correlationId: correlationId,
+    timestamp:     now() as String
+                   {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable
+                        variableName="httpStatus"><![CDATA[406]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+
+        </on-error-propagate>
+        <on-error-propagate
+            type="APIKIT:UNSUPPORTED_MEDIA_TYPE"
+            doc:name="Handle 415 Unsupported Media Type"
+            logException="false"
+            enableNotifications="false">
+
+            <ee:transform doc:name="Build-415Response">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode:     "UNSUPPORTED_MEDIA_TYPE",
+    message:       "Content-Type must be application/json",
+    correlationId: correlationId,
+    timestamp:     now() as String
+                   {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable
+                        variableName="httpStatus"><![CDATA[415]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+
+        </on-error-propagate>
+        <on-error-propagate
+            type="DB:CONNECTIVITY,&#10;                  DB:QUERY_EXECUTION,&#10;                  DB:RETRY_EXHAUSTED,&#10;                  DB:BAD_SQL_SYNTAX"
+            doc:name="Handle 500 Database Error"
+            logException="true"
+            enableNotifications="true">
+
+            <logger
+                level="ERROR"
+                doc:name="Log-500DatabaseError"
+                message="#['[SAPI][ERROR] 500 Database Error | '
+                           ++ 'type: '    ++ error.errorType.identifier
+                           ++ ' | cause: ' ++ error.cause.message
+                           ++ ' | correlationId: ' ++ correlationId]"/>
+
+            <ee:transform doc:name="Build-500DatabaseResponse">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode:     "DATABASE_ERROR",
+    message:       "A database error occurred. Please try again.",
+    correlationId: correlationId,
+    timestamp:     now() as String
+                   {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable
+                        variableName="httpStatus"><![CDATA[500]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+
+        </on-error-propagate>
+        <on-error-propagate
+            type="ANY"
+            doc:name="Handle 500 Unexpected Error"
+            logException="true"
+            enableNotifications="true">
+
+            <logger
+                level="ERROR"
+                doc:name="Log-500UnexpectedError"
+                message="#['[SAPI][ERROR] 500 Unexpected Error | '
+                           ++ 'type: '    ++ error.errorType.identifier
+                           ++ ' | cause: ' ++ error.description
+                           ++ ' | correlationId: ' ++ correlationId]"/>
+
+            <ee:transform doc:name="Build-500GenericResponse">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode:     "INTERNAL_SERVER_ERROR",
+    message:       "An unexpected error occurred. Please try again later.",
+    correlationId: correlationId,
+    timestamp:     now() as String
+                   {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable
+                        variableName="httpStatus"><![CDATA[500]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+
+        </on-error-propagate>
+
+    </error-handler>
+
+</mule>

@@ -1,0 +1,423 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
+        http://www.mulesoft.org/schema/mule/core
+        http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/ee/core
+        http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+        http://www.mulesoft.org/schema/mule/http
+        http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+
+    <sub-flow name="placeOrdersSubFlow">
+
+        <!-- ══════════════════════════════════════
+             STEP 1: Store original request
+             payload will be overwritten by HTTP
+             request calls later — store it now
+        ═══════════════════════════════════════ -->
+        <set-variable
+            variableName="originalRequest"
+            value="#[payload]"
+            doc:name="Var-StoreOriginalRequest"/>
+
+        <logger
+            level="INFO"
+            doc:name="Log-OrderRequestDetails"
+            message="#[%dw 2.0&#10;output application/java&#10;---&#10;'[PAPI][ORDER] Processing started'&#10;   ++ '	| phone: '  ++ payload.customer.phoneNumber&#10;   ++ ' | items: '  ++ (sizeOf(payload.items) as String)&#10;   ++ ' | channel: '++ payload.orderChannel&#10;   ++ ' | correlationId: ' ++ correlationId]"/>
+
+        <!-- ══════════════════════════════════════
+             STEP 2: Validate request
+             Business rules that RAML cannot catch
+        ═══════════════════════════════════════ -->
+        <flow-ref
+            name="validateOrderRequestSubFlow"
+            doc:name="Ref-ValidateOrderRequestSubFlow" targetValue="#[vars.originalRequest]"/>
+
+        <!-- ══════════════════════════════════════
+             STEP 3: Upsert customer
+             Send customer object to System API
+             /customers endpoint
+        ═══════════════════════════════════════ -->
+        <logger
+            level="INFO"
+            doc:name="Log-UpsertingCustomer"
+            message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[PAPI][CUSTOMER] Upserting customer'&#10;++ ' | phone: ' ++ vars.originalRequest.customer.phoneNumber]"/>
+
+        <http:request
+            config-ref="SystemAPI_Request_Config"
+            path="${system.api.basePath}/customers"
+            method="POST"
+            doc:name="HTTP-UpsertCustomer">
+            <http:body><![CDATA[#[vars.originalRequest.customer]]]></http:body>
+            <http:headers><![CDATA[#[{
+                "Content-Type":    "application/json",
+                "x-correlation-id": correlationId
+            }]]]></http:headers>
+        </http:request>
+
+        <logger
+            level="INFO"
+            doc:name="Log-CustomerUpserted"
+            message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[PAPI][CUSTOMER] Upsert complete'&#10;++ ' | phone: ' ++ vars.originalRequest.customer.phoneNumber]"/>
+
+        <!-- ══════════════════════════════════════
+             STEP 4: Check stock for ALL SKUs
+             Send all SKUs in ONE call to System API
+             /stock/availability endpoint
+             Much more efficient than one call per SKU
+        ═══════════════════════════════════════ -->
+        <logger
+            level="INFO"
+            doc:name="Log-CheckingStock"
+            message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[PAPI][STOCK] Checking stock for '&#10;++ (sizeOf(vars.originalRequest.items) as String)&#10;++ ' SKUs | correlationId: ' ++ correlationId]"/>
+
+        <http:request
+            config-ref="SystemAPI_Request_Config"
+            path="${system.api.basePath}/stock/availability"
+            method="POST"
+            doc:name="HTTP-CheckStock">
+            <http:body><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+    skus: vars.originalRequest.items.sku
+}]]]></http:body>
+            <http:headers><![CDATA[#[{
+                "Content-Type":     "application/json",
+                "x-correlation-id": correlationId
+            }]]]></http:headers>
+        </http:request>
+
+        <!-- Store stock response before it gets overwritten -->
+        <set-variable
+            variableName="stockResponse"
+            value="#[payload]"
+            doc:name="Var-StoreStockResponse"/>
+
+        <logger
+            level="INFO"
+            doc:name="Log-StockReceived"
+            message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[PAPI][STOCK] Stock data received'&#10;++ ' | skuCount: ' ++ (sizeOf(payload) as String)]"/>
+
+        <!-- ══════════════════════════════════════
+             STEP 5: Initialise results array
+             This will collect per-item outcomes
+             as we loop through each item
+        ═══════════════════════════════════════ -->
+        <set-variable
+            variableName="itemResults"
+            value="#[[]]"
+            doc:name="Var- empty array"/>
+
+        <!-- ══════════════════════════════════════
+             STEP 6: Loop through each item
+             For each item, check stock and
+             place order if available
+        ═══════════════════════════════════════ -->
+        <foreach
+            collection="#[vars.originalRequest.items]"
+            doc:name="ForEach-ProcessEachItem">
+
+            <!-- Store current item — payload changes each iteration -->
+            <set-variable
+                variableName="currentItem"
+                value="#[payload]"
+                doc:name="Var-StoreCurrentItem"/>
+
+            <!-- Find this item's stock from stored stock response -->
+            <ee:transform doc:name="FindItemStock">
+                <ee:variables>
+                    <ee:set-variable
+                        variableName="itemStock"><![CDATA[%dw 2.0
+output application/json
+---
+// Find the matching stock entry for this SKU
+// Returns null if SKU was not found
+(vars.stockResponse
+    filter (stockItem) -> stockItem.sku == vars.currentItem.sku
+)[0] default null]]>
+                    </ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+
+            <logger
+                level="INFO"
+                doc:name="Log-ItemStockFound"
+                message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[PAPI][ORDER] Stock check | '&#10;++ 'sku: '       ++ vars.currentItem.sku&#10;++ ' | qty: '    ++ (vars.itemStock.available_quantity default 0 as String)]"/>
+
+            <!-- ── Decision: Is stock sufficient? ── -->
+            <choice doc:name="Choice-IsStockAvailable">
+
+                <!-- Stock IS available — place order -->
+                <when expression="#[vars.itemStock != null&#10;and vars.itemStock.available_quantity &gt;= vars.currentItem.quantity]">
+
+                    <!-- Generate unique orderId for this item -->
+                    <ee:transform doc:name="Transform-GenerateOrderId">
+                        <ee:variables>
+                            <ee:set-variable
+                                variableName="generatedOrderId"><![CDATA[%dw 2.0
+output application/json
+---
+// Format: ORD-YYYYMMDD-NNNNNN
+"ORD-"
+++ (now() as String {format: "yyyyMMdd"}) ++"-"
+++ ((randomInt(900000) + 100000) as String)]]>
+                            </ee:set-variable>
+                        </ee:variables>
+                    </ee:transform>
+
+                    <logger
+                        level="INFO"
+                        doc:name="Log-PlacingOrder"
+                        message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[PAPI][ORDER] Placing order'&#10;   ++ ' | orderId: ' ++ vars.generatedOrderId&#10;   ++ ' | sku: '  ++ vars.currentItem.sku&#10;   ++ ' | qty: '  ++ (vars.currentItem.quantity as String)]"/>
+
+                    <!-- Call System API to place this single item order -->
+                    <http:request
+                        config-ref="SystemAPI_Request_Config"
+                        path="${system.api.basePath}/orders"
+                        method="POST"
+                        doc:name="HTTP-PlaceSingleOrder">
+                        <http:body><![CDATA[#[%dw 2.0
+output application/json
+---
+{
+    orderId:            vars.generatedOrderId,
+    phoneNumber:        vars.originalRequest.customer.phoneNumber,
+    sku:                vars.currentItem.sku,
+    quantity:           vars.currentItem.quantity,
+    orderChannel:       vars.originalRequest.orderChannel,
+    paymentMode:        vars.originalRequest.paymentMode,
+    deliveryPreference: vars.originalRequest.deliveryPreference
+}]]]></http:body>
+                        <http:headers><![CDATA[#[{
+                            "Content-Type":     "application/json",
+                            "x-correlation-id": correlationId
+                        }]]]></http:headers>
+                    </http:request>
+
+                    <!-- Store System API response -->
+					<set-variable
+                        variableName="orderPlaceResponse"
+                        value="#[payload]"
+                        doc:name="Var-StoreOrderPlaceResponse"/>
+
+                    <!-- ── Did System API actually place it? ── -->
+                    <!-- Edge case: stock depleted between
+                         check and placement (race condition) -->
+                    <choice doc:name="Choice-DidSystemAPISucceed">
+
+                        <when expression="#[vars.orderPlaceResponse.success==true]">
+                            <!-- Append success result -->
+                            <ee:transform doc:name="Transform-AppendSuccessResult">
+                                <ee:variables>
+                                    <ee:set-variable
+                                        variableName="itemResults"><![CDATA[%dw 2.0
+output application/json
+---
+vars.itemResults ++ [{
+    sku:      vars.currentItem.sku,
+    quantity: vars.currentItem.quantity,
+    status:   "Order Placed",
+    orderId:  vars.generatedOrderId
+}]]]>
+                                    </ee:set-variable>
+                                </ee:variables>
+                            </ee:transform>
+
+                            <logger
+                                level="INFO"
+                                doc:name="Log-OrderSuccess"
+                                message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[PAPI][ORDER] Order placed'&#10;   ++ ' | orderId: ' ++ vars.generatedOrderId&#10;   ++ ' | sku: '  ++ vars.currentItem.sku]"/>
+                        </when>
+
+                        <!-- System API returned success:false
+                             Race condition — stock gone between
+                             check and placement -->
+                        <otherwise>
+                            <ee:transform doc:name="Transform-AppendRaceConditionFailure">
+                                <ee:variables>
+                                    <ee:set-variable
+                                        variableName="itemResults"><![CDATA[%dw 2.0
+output application/json
+---
+vars.itemResults ++ [{
+    sku:      vars.currentItem.sku,
+    quantity: vars.currentItem.quantity,
+    status:   "Sorry, not placed",
+    reason:   "Rare Condition Failure: Sku out of stock"
+}]]]>
+                                    </ee:set-variable>
+                                </ee:variables>
+                            </ee:transform>
+
+                            <logger
+                                level="WARN"
+                                doc:name="Log-RaceConditionFailure"
+                                message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[PAPI][ORDER] Race condition — stock gone'&#10;   ++ ' | sku: ' ++ vars.currentItem.sku]"/>
+                        </otherwise>
+                    </choice>
+
+                
+</when>
+
+                <!-- Stock NOT available — skip order placement -->
+                <otherwise>
+                    <ee:transform doc:name="Transform-AppendOutOfStockResult">
+                        <ee:variables>
+                            <ee:set-variable
+                                variableName="itemResults"><![CDATA[%dw 2.0
+output application/json
+---
+vars.itemResults ++ [{
+    sku:      vars.currentItem.sku,
+    quantity: vars.currentItem.quantity,
+    status:   "Sorry, not placed",
+    reason:   "Requested Quantity > Available Quantity"
+}]]]>
+                            </ee:set-variable>
+                        </ee:variables>
+                    </ee:transform>
+
+                    <logger
+                        level="INFO"
+                        doc:name="Log-OutOfStock"
+                        message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[PAPI][ORDER] Out of stock'&#10;   ++ ' | sku: ' ++ vars.currentItem.sku&#10;   ++ ' | requested: ' ++ (vars.currentItem.quantity as String)&#10;   ++ ' | available: '&#10;   ++ (vars.itemStock.availableQuantity default 0 as String)]"/>
+                </otherwise>
+
+            </choice>
+
+        </foreach>
+
+        <!-- ══════════════════════════════════════
+             STEP 7: Build final response
+             Calculate requestStatus from results
+             Shape the final response for customer
+        ═══════════════════════════════════════ -->
+        <ee:transform doc:name="Transform-BuildFinalResponse">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+
+// Split results by outcome
+var placedItems    = vars.itemResults
+                     filter (item) -> item.status == "Order Placed"
+
+var notPlacedItems = vars.itemResults
+                     filter (item) -> item.status == "Sorry, not placed"
+
+// Determine overall request status
+var overallStatus  = if (sizeOf(notPlacedItems) == 0)
+                         "SUCCESS"
+                     else if (sizeOf(placedItems) == 0)
+                         "FAILED"
+                     else
+                         "PARTIAL_SUCCESS"
+---
+{
+    phoneNumber:   vars.originalRequest.customer.phoneNumber,
+    requestStatus: overallStatus,
+    itemResults:   vars.itemResults
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+
+        <logger 
+  level="INFO"
+  doc:name="Log Final ResponseBuilt"
+  message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[PAPI][ORDER] Processing complete'&#10;    ++ ' | status: ' ++ payload.requestStatus&#10;    ++ ' | placed: ' &#10;    ++ (sizeOf(vars.itemResults filter ((i) -&gt; i.status == 'Order Placed')) as String)&#10;    ++ ' | failed: ' &#10;    ++ (sizeOf(vars.itemResults filter ((i) -&gt; i.status != 'Order Placed')) as String)&#10;    ++ ' | correlationId: ' ++ correlationId]"/>
+
+    </sub-flow>
+    
+    
+    <sub-flow name="validateOrderRequestSubFlow">
+
+        <!-- Rule 1: orderId must NOT be present in request -->
+        <choice doc:name="Choice-OrderIdMustBeAbsent">
+            <when expression="#[vars.originalRequest.orderId != null]">
+                <raise-error
+                    type="VALIDATION:INVALID_VALUE"
+                    description="Request must not contain orderId field"
+                    doc:name="Raise-OrderIdNotAllowed"/>
+            </when>
+            <otherwise>
+                <logger
+                    level="DEBUG"
+                    doc:name="Log-NoOrderIdValidated"
+                    message="[PAPI][VALIDATE] orderId absence validated"/>
+            </otherwise>
+        </choice>
+
+        <!-- Rule 2: items array must not be empty -->
+        <!-- Note: RAML already enforces minItems:1
+             This is a defensive check -->
+        <choice doc:name="Choice-ItemsNotEmpty">
+            <when expression="#[vars.originalRequest.items == null&#10;                or sizeOf(vars.originalRequest.items) == 0]">
+                <raise-error
+                    type="VALIDATION:EMPTY_COLLECTION"
+                    description="items array must contain at least one item"
+                    doc:name="Raise-EmptyItemsError"/>
+            </when>
+            <otherwise>
+                <logger
+                    level="DEBUG"
+                    doc:name="Log-ItemsValidated"
+                    message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[PAPI][VALIDATE] Items count validated | '&#10;++ 'count: ' ++ (sizeOf(vars.originalRequest.items) as String)]"/>
+            </otherwise>
+        </choice>
+
+        <!-- Rule 3: Validate each item individually -->
+        <foreach
+            collection="#[vars.originalRequest.items]"
+            doc:name="ForEach-ValidateEachItem">
+
+            <!-- Rule 3a: SKU cannot be blank -->
+            <choice doc:name="Choice-SkuNotBlank">
+                <when expression="#[payload.sku == null or trim(payload.sku) == '']">
+                    <raise-error
+                        type="VALIDATION:INVALID_VALUE"
+                        description="SKU cannot be blank or null"
+                        doc:name="Raise-BlankSkuError"/>
+                </when>
+                <otherwise>
+                    <logger
+                        level="DEBUG"
+                        doc:name="Log-SkuValidated"
+                        message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[PAPI][VALIDATE] SKU valid: ' ++ payload.sku]"/>
+                </otherwise>
+            </choice>
+
+            <!-- Rule 3b: Quantity must be greater than 0 -->
+            <!-- Note: RAML enforces minimum:1
+                 This is a defensive check -->
+            <choice doc:name="Choice-QuantityValid">
+                <when expression="#[payload.quantity == null&#10;                    or payload.quantity &lt;= 0]">
+                    <raise-error
+                        type="VALIDATION:INVALID_VALUE"
+                        description="#['quantity must be greater than 0 for sku: ' ++ payload.sku]"
+                        doc:name="Raise-InvalidQuantityError"/>
+                </when>
+                <otherwise>
+                    <logger
+                        level="DEBUG"
+                        doc:name="Log-QuantityValidated"
+                        message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[PAPI][VALIDATE] Quantity valid'&#10;++ ' | sku: ' ++ payload.sku&#10;++ ' | qty: ' ++ (payload.quantity as String)]"/>
+                </otherwise>
+            </choice>
+
+        </foreach>
+
+        <logger
+            level="INFO"
+            doc:name="Log-ValidationPassed"
+            message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[PAPI][VALIDATE] All validations passed | '&#10;++ 'correlationId: ' ++ correlationId]"/>
+
+    </sub-flow>
+    
+
+</mule>

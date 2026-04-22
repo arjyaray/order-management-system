@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:db="http://www.mulesoft.org/schema/mule/db"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd 
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
+        http://www.mulesoft.org/schema/mule/core
+        http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/db
+        http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+        http://www.mulesoft.org/schema/mule/ee/core
+        http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<!-- [STUDIO:"order-placeSub_Flow-old"]<sub-flow name="order-placeSub_Flow-old" doc:id="e0835c52-ddca-4f6c-bf12-b816dc132d8c" >
+		<logger level="INFO" doc:name="Log order place start" doc:id="2aaebe6c-b75b-491e-83e2-b3743d58d1ed" message="#['[SAPI&#93;[ORDER&#93; Place request | orderId: '&#10;                       ++ payload.orderId&#10;                       ++ ' | sku: ' ++ payload.sku&#93;" />
+		<set-variable value="#[payload&#93;" doc:name="orderPayload var" doc:id="25f94632-1c22-4f5c-b25f-73f260406a8f" variableName="orderPayload" />
+		<db:update doc:name="Stock Update" doc:id="a98c56b0-019b-46ef-8ab4-636d2da8653f" config-ref="MySQL_DB_Config">
+			<db:sql><![CDATA[
+                UPDATE inventory
+                SET    available_quantity = available_quantity - :qty
+                WHERE  sku = :sku
+                AND    available_quantity >= :qty
+            &#93;&#93;></db:sql>
+			<db:input-parameters><![CDATA[#[{
+	sku: vars.orderPayload.sku,
+	qty: vars.orderPayload.quantity
+}&#93;&#93;&#93;></db:input-parameters>
+		</db:update>
+		<db:insert doc:name="PLACED" doc:id="5da666cb-7a46-4b9e-b6fb-d3c296b6ee91" config-ref="MySQL_DB_Config">
+					<db:sql><![CDATA[INSERT INTO orders
+    (order_id, phone_number, sku,
+        quantity, order_channel,
+        payment_mode, delivery_pref, status)
+VALUES
+    (:orderId, :phoneNumber, :sku,
+        :quantity, :orderChannel,
+        :paymentMode, :deliveryPref, 'PLACED')&#93;&#93;></db:sql>
+					<db:input-parameters><![CDATA[#[{
+	orderId:       vars.orderPayload.orderId,
+	phoneNumber:   vars.orderPayload.phoneNumber,
+	sku:           vars.orderPayload.sku,
+	quantity:      vars.orderPayload.quantity,
+	orderChannel:  vars.orderPayload.orderChannel
+	               default "UNKNOWN",
+	paymentMode:   vars.orderPayload.paymentMode
+	               default "UNKNOWN",
+	deliveryPref:  vars.orderPayload.deliveryPreference
+	               default "STANDARD"
+}&#93;&#93;&#93;></db:input-parameters>
+				</db:insert>
+		<ee:transform doc:name="success response" doc:id="26ef3d0d-9921-4b9b-899e-159740d9e99f">
+					<ee:message>
+						<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+&#45;&#45;-
+{
+    success: true,
+    orderId: vars.orderPayload.orderId,
+    sku:     vars.orderPayload.sku
+}&#93;&#93;></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+	</sub-flow> [STUDIO] -->
+	
+	
+	
+	<sub-flow name="order-placeSub_Flow" doc:id="4eecfbc8-b8ec-440b-98bf-cd7c4d3655ad">
+
+    <logger level="INFO"
+            doc:name="Log-OrderPlaceStart"
+            message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[SAPI][ORDER] Place request | orderId: '&#10;   ++ payload.orderId&#10;   ++ ' | sku: ' ++ payload.sku&#10;   ++ ' | qty: ' ++ (payload.quantity as String)]"/>
+
+    <set-variable
+        variableName="orderPayload"
+        value="#[payload]"
+        doc:name="Var-StoreOrderPayload"/>
+
+    <!-- STEP 1: Decrement stock FIRST — atomically -->
+    <db:update config-ref="MySQL_DB_Config"
+               doc:name="DB-DecrementStock">
+        <db:sql><![CDATA[
+            UPDATE inventory
+            SET    available_quantity = available_quantity - :qty
+            WHERE  sku = :sku
+            AND    available_quantity >= :qty
+        ]]></db:sql>
+        <db:input-parameters><![CDATA[#[{
+    sku: vars.orderPayload.sku,
+    qty: vars.orderPayload.quantity
+}]]]></db:input-parameters>
+    </db:update>
+
+    <!-- STEP 2: Store rows affected -->
+
+    <!-- STEP 3: Only insert order if stock was decremented -->
+    <choice doc:name="Choice-WasStockDecremented">
+
+        <when expression="#[payload.affectedRows &gt; 0]">
+
+            <db:insert config-ref="MySQL_DB_Config"
+                       doc:name="DB-InsertOrderRecord">
+                <db:sql><![CDATA[
+                    INSERT INTO orders
+                        (order_id, phone_number, sku,
+                         quantity, order_channel,
+                         payment_mode, delivery_pref, status)
+                    VALUES
+                        (:orderId, :phoneNumber, :sku,
+                         :quantity, :orderChannel,
+                         :paymentMode, :deliveryPref, 'PLACED')
+                ]]></db:sql>
+                <db:input-parameters><![CDATA[#[{
+                    orderId:      vars.orderPayload.orderId,
+                    phoneNumber:  vars.orderPayload.phoneNumber,
+                    sku:          vars.orderPayload.sku,
+                    quantity:     vars.orderPayload.quantity,
+                    orderChannel: vars.orderPayload.orderChannel
+                                  default "UNKNOWN",
+                    paymentMode:  vars.orderPayload.paymentMode
+                                  default "UNKNOWN",
+                    deliveryPref: vars.orderPayload.deliveryPreference
+                                  default "STANDARD"
+                }]]]></db:input-parameters>
+            </db:insert>
+
+            <ee:transform doc:name="Transform-SuccessResponse">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: true,
+    orderId: vars.orderPayload.orderId,
+    sku:     vars.orderPayload.sku
+}]]></ee:set-payload>
+                </ee:message>
+            </ee:transform>
+        </when>
+
+        <otherwise>
+            <ee:transform doc:name="Transform-OutOfStockResponse">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: false,
+    sku:     vars.orderPayload.sku,
+    reason:  "OUT_OF_STOCK"
+}]]></ee:set-payload>
+                </ee:message>
+            </ee:transform>
+        </otherwise>
+
+    </choice>
+
+</sub-flow>
+
+
+</mule>

@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
+        http://www.mulesoft.org/schema/mule/core
+        http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/ee/core
+        http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <error-handler name="global-error-handler">
+        <on-error-propagate
+            type="APIKIT:BAD_REQUEST"
+            doc:name="Handle-400ApiKitBadRequest"
+            logException="false"
+            enableNotifications="false">
+            <logger
+                level="WARN"
+                doc:name="Log-400BadRequest"
+                message="#['[EAPI][ERROR] 400 Bad Request | '
+                           ++ 'message: ' ++ error.description
+                           ++ ' | correlationId: ' ++ correlationId]"/>
+            <ee:transform doc:name="Build-400Response">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode:     "BAD_REQUEST",
+    message:       error.description,
+    correlationId: correlationId,
+    timestamp:     now() as String
+                   {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable
+                        variableName="httpStatus"><![CDATA[400]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+        <!-- [STUDIO:"Handle-401Unauthorized"]<on-error-propagate
+            type="CLIENT-ID-ENFORCEMENT:INVALID_TOKEN"
+            doc:name="Handle-401Unauthorized"
+            logException="false"
+            enableNotifications="false">
+            <logger
+                level="WARN"
+                doc:name="Log-401Unauthorized"
+                message="#['[EAPI&#93;[ERROR&#93; 401 Unauthorized | '
+                           ++ 'missing client credentials | '
+                           ++ 'correlationId: ' ++ correlationId&#93;"/>
+            <ee:transform doc:name="Build-401Response">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+&#45;&#45;-
+{
+    errorCode:     "UNAUTHORIZED",
+    message:       "Missing or invalid client credentials. Please provide valid client_id and client_secret headers.",
+    correlationId: correlationId,
+    timestamp:     now() as String
+                   {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+}&#93;&#93;></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable
+                        variableName="httpStatus"><![CDATA[401&#93;&#93;></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate> [STUDIO] -->
+        
+        <!-- [STUDIO:"Handle-403Forbidden"]<on-error-propagate
+    type="CLIENT-ID-ENFORCEMENT:INVALID_CLIENT"
+    doc:name="Handle-403Forbidden"
+    logException="false"
+    enableNotifications="false">
+
+    <logger
+        level="WARN"
+        doc:name="Log-403Forbidden"
+        message="#['[EAPI&#93;[ERROR&#93; 403 Forbidden | '
+                   ++ 'app not approved for this API | '
+                   ++ 'correlationId: ' ++ correlationId&#93;"/>
+
+    <ee:transform doc:name="Build-403Response">
+        <ee:message>
+            <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+&#45;&#45;-
+{
+    errorCode:     "FORBIDDEN",
+    message:       "Application is not approved to access this API. Request access in Anypoint Exchange.",
+    correlationId: correlationId,
+    timestamp:     now() as String
+                   {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+}&#93;&#93;></ee:set-payload>
+        </ee:message>
+        <ee:variables>
+            <ee:set-variable
+                variableName="httpStatus"><![CDATA[403&#93;&#93;></ee:set-variable>
+        </ee:variables>
+    </ee:transform>
+
+</on-error-propagate> [STUDIO] -->
+
+        <on-error-propagate
+            type="APIKIT:NOT_FOUND"
+            doc:name="Handle-404NotFound"
+            logException="false"
+            enableNotifications="false">
+            <logger
+                level="WARN"
+                doc:name="Log-404NotFound"
+                message="#['[EAPI][ERROR] 404 Not Found | '
+                           ++ 'path: ' ++ attributes.requestPath
+                           ++ ' | correlationId: ' ++ correlationId]"/>
+            <ee:transform doc:name="Build-404Response">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode:     "NOT_FOUND",
+    message:       "The requested endpoint does not exist",
+    correlationId: correlationId,
+    timestamp:     now() as String
+                   {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable
+                        variableName="httpStatus"><![CDATA[404]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+        <on-error-propagate
+            type="APIKIT:METHOD_NOT_ALLOWED"
+            doc:name="Handle-405MethodNotAllowed"
+            logException="false"
+            enableNotifications="false">
+            <logger
+                level="WARN"
+                doc:name="Log-405MethodNotAllowed"
+                message="#['[EAPI][ERROR] 405 Method Not Allowed | '
+                           ++ 'correlationId: ' ++ correlationId]"/>
+            <ee:transform doc:name="Build-405Response">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode:     "METHOD_NOT_ALLOWED",
+    message:       "HTTP method not allowed for this endpoint",
+    correlationId: correlationId,
+    timestamp:     now() as String
+                   {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable
+                        variableName="httpStatus"><![CDATA[405]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+        <on-error-propagate
+            type="APIKIT:NOT_ACCEPTABLE"
+            doc:name="Handle-406NotAcceptable"
+            logException="false"
+            enableNotifications="false">
+            <ee:transform doc:name="Build-406Response">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode:     "NOT_ACCEPTABLE",
+    message:       "Requested media type is not supported",
+    correlationId: correlationId,
+    timestamp:     now() as String
+                   {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable
+                        variableName="httpStatus"><![CDATA[406]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+        <on-error-propagate
+            type="APIKIT:UNSUPPORTED_MEDIA_TYPE"
+            doc:name="Handle-415UnsupportedMediaType"
+            logException="false"
+            enableNotifications="false">
+            <ee:transform doc:name="Build-415Response">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode:     "UNSUPPORTED_MEDIA_TYPE",
+    message:       "Content-Type must be application/json",
+    correlationId: correlationId,
+    timestamp:     now() as String
+                   {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable
+                        variableName="httpStatus"><![CDATA[415]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+        <on-error-propagate
+            type="HTTP:CONNECTIVITY"
+            doc:name="Handle-503ProcessApiUnreachable"
+            logException="true"
+            enableNotifications="true">
+            <logger
+                level="ERROR"
+                doc:name="Log-503ProcessApiUnreachable"
+                message="#['[EAPI][ERROR] 503 Process API unreachable | '
+                           ++ 'cause: ' ++ error.description
+                           ++ ' | correlationId: ' ++ correlationId]"/>
+            <ee:transform doc:name="Build-503Response">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode:     "SERVICE_UNAVAILABLE",
+    message:       "Service is currently unavailable. Please try again later.",
+    correlationId: correlationId,
+    timestamp:     now() as String
+                   {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable
+                        variableName="httpStatus"><![CDATA[503]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+        <on-error-propagate
+            type="HTTP:TIMEOUT"
+            doc:name="Handle-504ProcessApiTimeout"
+            logException="true"
+            enableNotifications="true">
+            <logger
+                level="ERROR"
+                doc:name="Log-504Timeout"
+                message="#['[EAPI][ERROR] 504 Process API timeout | '
+                           ++ 'correlationId: ' ++ correlationId]"/>
+            <ee:transform doc:name="Build-504Response">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode:     "GATEWAY_TIMEOUT",
+    message:       "The service did not respond in time. Please try again.",
+    correlationId: correlationId,
+    timestamp:     now() as String
+                   {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable
+                        variableName="httpStatus"><![CDATA[504]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+        <on-error-propagate
+            type="ANY"
+            doc:name="Handle-500UnexpectedError"
+            logException="true"
+            enableNotifications="true">
+            <logger
+                level="ERROR"
+                doc:name="Log-500UnexpectedError"
+                message="#['[EAPI][ERROR] 500 Unexpected Error | '
+                           ++ 'type: '  ++ error.errorType.identifier
+                           ++ ' | cause: ' ++ error.description
+                           ++ ' | correlationId: ' ++ correlationId]"/>
+            <ee:transform doc:name="Build-500Response">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    errorCode:     "INTERNAL_SERVER_ERROR",
+    message:       "An unexpected error occurred. Please try again later.",
+    correlationId: correlationId,
+    timestamp:     now() as String
+                   {format: "yyyy-MM-dd'T'HH:mm:ss'Z'"}
+}]]></ee:set-payload>
+                </ee:message>
+                <ee:variables>
+                    <ee:set-variable
+                        variableName="httpStatus"><![CDATA[500]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+        </on-error-propagate>
+
+    </error-handler>
+
+</mule>

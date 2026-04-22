@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+        http://www.mulesoft.org/schema/mule/core
+        http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http
+        http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <sub-flow name="stockAvailabilitySubFlow">
+
+        <logger
+            level="INFO"
+            doc:name="Log-StockCheckStarted"
+            message="#[%dw 2.0&#10;output json&#10;---&#10;'[PAPI][STOCK] Forwarding stock check | '&#10;                       ++ 'skuCount: '     ++ (sizeOf(payload.skus) as String)&#10;                       ++ ' | correlationId: ' ++ correlationId]"/>
+
+        <!-- Store request before HTTP call overwrites payload -->
+        <set-variable
+            variableName="requestedSkus"
+            value="#[payload.skus]"
+            doc:name="Var-StoreStockRequest"/>
+
+        <!-- Forward to System API — no transformation needed -->
+		<flow-ref doc:name="Flow Reference" doc:id="cab2fba4-9bcc-4eaa-ac60-7b344118df23" name="stock-validation-PAPI-subFlow"/>
+		<http:request
+            config-ref="SystemAPI_Request_Config"
+            path="${system.api.basePath}/stock/availability"
+            method="POST"
+            doc:name="HTTP-ForwardToSystemAPI">
+			<http:headers><![CDATA[#[{
+                "Content-Type":     "application/json",
+                "x-correlation-id": correlationId
+            }]]]></http:headers>
+        </http:request>
+		<set-variable value="#[payload]" doc:name="Store DB result" doc:id="25de9d28-e43b-407d-a830-86402e5e6b67" variableName="availableSkus" />
+		<ee:transform doc:name="Find unrecognised SKUs" doc:id="05f944dc-beab-41d3-94e7-cf13f5f31f5f" >
+			<ee:variables >
+				<ee:set-variable variableName="foundSkus" ><![CDATA[%dw 2.0
+output application/json
+---
+vars.availableSkus map (row) -> row.sku]]></ee:set-variable>
+				<ee:set-variable variableName="unknownSkus" ><![CDATA[%dw 2.0
+output application/json
+---
+vars.requestedSkus filter (requestedSku) ->
+    !(vars.foundSkus contains requestedSku)]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="STOCK Response" doc:id="b89e7b09-cd3d-4c05-9966-2a30b6b314d5" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+
+var knownStock = vars.availableSkus map (item, index) -> {
+	sku:				item.sku,
+	availableQuantity: item.available_quantity,
+	isAvailable:		item.available_quantity>0
+}
+        
+
+var unknownStock = vars.unknownSkus map (sku) -> {
+    sku:               sku,
+    availableQuantity: 0,
+    isAvailable:       false
+}
+
+var allSkuResults = vars.requestedSkus map (requestedSku) ->
+    ((knownStock filter (k) -> k.sku == requestedSku)[0])
+    default
+    ((unknownStock filter (u) -> u.sku == requestedSku)[0])
+    
+---
+{
+    stock: allSkuResults
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Log-StockResponseReceived" message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[PAPI][STOCK] Stock response received | '&#10;                       ++ 'resultCount: ' ++ (sizeOf(payload.stock) as String)&#10;                       ++ ' | correlationId: ' ++ correlationId]" />
+
+    
+</sub-flow>
+	<sub-flow name="stock-validation-PAPI-subFlow" doc:id="e012db3f-f389-4110-96eb-8bd6aceffc60" >
+		<choice doc:name="Is SKU list empty" doc:id="7771258b-9d69-4f4a-a9b7-454e21a954da">
+			<when expression="#[sizeOf(vars.requestedSkus) == 0]">
+				<logger level="WARN" doc:name="errorLogger" doc:id="ab7912b6-a735-4880-8415-059c3efa91b1" message="requested sku list is empty" />
+				<raise-error doc:name="Raise empty SKU List error" doc:id="66105c52-f1d5-48de-883e-a43c8fb21328" type="VALIDATION:EMPTY_COLLECTION" description='"skus array must contain at least one SKU"' />
+			</when>
+			<otherwise>
+				<logger level="INFO" doc:name="Log valid sku list" doc:id="94852852-c88f-45ba-9a7a-dad66e41e5ff" message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[PAPI][STOCK] SKU list: '&#10;    ++ (vars.requestedSkus joinBy ', ')&#10;    ++ ' | validated — proceeding']" />
+			</otherwise>
+		</choice>
+		<foreach doc:name="Check for each valid SKU" doc:id="d4e64a14-aeff-4594-95fc-955d51ae595c" collection="#[vars.requestedSkus]">
+			<choice doc:name="Is SKU blank?" doc:id="267e241f-25bb-4260-b1ef-841b337396b1">
+				<when expression="#[payload == null or trim(payload) == '']">
+					<logger level="WARN" doc:name="errorLogger" doc:id="9b05bf22-5473-420e-a099-cb93de940eba" message="sku item is null" />
+					<raise-error doc:name="Raise blank SKU error" doc:id="f68cf23a-5f93-4e6d-b4b1-06e0cd06f0e6" type="VALIDATION:INVALID_VALUE" description="SKU values cannot be blank or null" />
+				</when>
+				<otherwise>
+					<logger level="INFO" doc:name="Log valid SKU" doc:id="5e130d07-84b7-4da3-99ae-0607cd3f4a7f" message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[PAPI][STOCK] SKU valid: ' ++ payload]" />
+				</otherwise>
+			</choice>
+		</foreach>
+	</sub-flow>
+
+
+</mule>

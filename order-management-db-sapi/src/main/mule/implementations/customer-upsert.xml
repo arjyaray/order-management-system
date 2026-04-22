@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:db="http://www.mulesoft.org/schema/mule/db"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd 
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
+        http://www.mulesoft.org/schema/mule/core
+        http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/db
+        http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+        http://www.mulesoft.org/schema/mule/ee/core
+        http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<sub-flow name="customer-upsertSub_Flow" doc:id="4f27ffc2-f376-4f42-aebb-c1f0995f549c" >
+		<logger level="INFO" message="#[%dw 2.0&#10;output application/json&#10;---&#10;'[SAPI][CUSTOMER] Upsert request | phone: '&#10;++ payload.phoneNumber]" doc:name="Log upsert request" />
+		<db:insert config-ref="MySQL_DB_Config" doc:name="Upsert customer record">
+            <db:sql><![CDATA[INSERT INTO customers
+    (full_name, phone_number, email,
+        address_line1, address_line2,
+        city, state, postal_code)
+VALUES
+    (:fullName, :phoneNumber, :email,
+        :line1, :line2,
+        :city, :state, :postalCode)
+ON DUPLICATE KEY UPDATE
+    full_name     = VALUES(full_name),
+    email         = VALUES(email),
+    address_line1 = VALUES(address_line1),
+    address_line2 = VALUES(address_line2),
+    city          = VALUES(city),
+    state         = VALUES(state),
+    postal_code   = VALUES(postal_code)        ]]></db:sql>
+            <db:input-parameters><![CDATA[#[{
+	fullName:    payload.fullName,
+	phoneNumber: payload.phoneNumber,
+	email:       payload.email,
+	line1:       payload.address.line1,
+	line2:       payload.address.line2
+	             default "",
+	city:        payload.address.city,
+	state:       payload.address.state,
+	postalCode:  payload.address.postalCode
+}]]]></db:input-parameters>
+        </db:insert>
+	</sub-flow>
+	
+	
+	
+	<!-- [STUDIO:"customer-upsertSub_Flow"]<sub-flow name="customer-upsertSub_Flow">
+
+    <set-variable
+        variableName="customerPayload"
+        value="#[payload&#93;"
+        doc:name="Var-StoreCustomerPayload"/>
+
+    <logger level="INFO"
+            doc:name="Log-UpsertRequest"
+            message="#['[SAPI&#93;[CUSTOMER&#93; Upsert request | phone: '
+                       ++ vars.customerPayload.phoneNumber&#93;"/>
+
+    <db:insert config-ref="MySQL_DB_Config"
+               doc:name="DB-UpsertCustomer">
+        <db:sql><![CDATA[
+            INSERT INTO customers
+                (full_name, phone_number, email,
+                 address_line1, address_line2,
+                 city, state, postal_code)
+            VALUES
+                (:fullName, :phoneNumber, :email,
+                 :line1, :line2,
+                 :city, :state, :postalCode)
+            ON DUPLICATE KEY UPDATE
+                full_name     = VALUES(full_name),
+                email         = VALUES(email),
+                address_line1 = VALUES(address_line1),
+                address_line2 = VALUES(address_line2),
+                city          = VALUES(city),
+                state         = VALUES(state),
+                postal_code   = VALUES(postal_code)
+        &#93;&#93;></db:sql>
+        <db:input-parameters><![CDATA[#[{
+            fullName:    vars.customerPayload.fullName,
+            phoneNumber: vars.customerPayload.phoneNumber,
+            email:       vars.customerPayload.email,
+            line1:       vars.customerPayload.address.line1,
+            line2:       vars.customerPayload.address.line2
+                         default "",
+            city:        vars.customerPayload.address.city,
+            state:       vars.customerPayload.address.state,
+            postalCode:  vars.customerPayload.address.postalCode
+        }&#93;&#93;&#93;></db:input-parameters>
+    </db:insert>
+
+    <!&#45;&#45; ✅ This MUST be here — build proper response &#45;&#45;>
+    <ee:transform doc:name="Transform-BuildUpsertResponse">
+        <ee:message>
+            <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+&#45;&#45;-
+{
+    status:      "ok",
+    phoneNumber: vars.customerPayload.phoneNumber
+}&#93;&#93;></ee:set-payload>
+        </ee:message>
+    </ee:transform>
+
+    <logger level="INFO"
+            doc:name="Log-UpsertComplete"
+            message="#['[SAPI&#93;[CUSTOMER&#93; Upsert complete | phone: '
+                       ++ vars.customerPayload.phoneNumber&#93;"/>
+
+</sub-flow> [STUDIO] -->
+
+
+</mule>

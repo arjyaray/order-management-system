@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<sub-flow name="stock-availabilitySub_Flow" doc:id="5ae748f1-e301-43a6-b7e4-472465548676" >
+ <logger
+            level="INFO"
+            message="#['[SAPI][STOCK] Request received | SKUs: '
+                       ++ (payload.skus joinBy ', ')]"
+            doc:name="Log incoming SKUs"/>
+		
+		<db:select config-ref="MySQL_DB_Config" doc:name="Getting STOCK from DB">
+        <db:sql><![CDATA[#[
+%dw 2.0
+output application/java
+var skuString = flatten(payload.skus map ["\"" ++ $ ++ "\""]) joinBy ","
+---
+"SELECT sku, available_quantity FROM inventory WHERE sku IN("++ skuString ++")"
+]]]>
+        </db:sql>
+    
+</db:select>
+<ee:transform doc:name="DB result -&gt; json" doc:id="cb97c461-a6b0-4615-9be5-b265be5a6225" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Log DB result -&gt; Process" doc:id="9d9a04ad-94ac-4822-9ba2-c658dc0c9289" message="#['[SAPI][STOCK] Response Sent to Process API | SKUs: '&#10;    ++ ((payload map $.sku) joinBy ', ')]"/>
+	</sub-flow>
+</mule>

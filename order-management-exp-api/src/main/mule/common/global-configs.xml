@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:api-gateway="http://www.mulesoft.org/schema/mule/api-gateway"
+      xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd 
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+        http://www.mulesoft.org/schema/mule/core
+        http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http
+        http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/mule-apikit
+        http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd
+http://www.mulesoft.org/schema/mule/api-gateway http://www.mulesoft.org/schema/mule/api-gateway/current/mule-api-gateway.xsd">
+
+    <http:listener-config
+        name="HTTP_Listener_config"
+        doc:name="HTTP Listener Config">
+        <http:listener-connection
+            host="${http.listener.host}"
+            port="${http.listener.port}"
+            readTimeout="${http.listener.readTimeout}"/>
+    </http:listener-config>
+
+    <http:request-config
+        name="ProcessAPI_Request_Config"
+        doc:name="Process API Request Config"
+        responseTimeout="${process.api.responseTimeout}">
+        <http:request-connection
+            host="${process.api.host}"
+            port="${process.api.port}"
+            connectionIdleTimeout="${process.api.connectionTimeout}" protocol="HTTPS"/>
+    </http:request-config>
+
+    <configuration-properties
+        file="properties/${mule.env}.properties"
+        doc:name="Config Properties"/>
+	<api-gateway:autodiscovery apiId="${api.id}" ignoreBasePath="true" doc:name="API Autodiscovery" doc:id="eac833a5-32ca-4f69-888b-306a604686a1" flowRef="order-management-exp-api-main"/>
+
+
+</mule>
