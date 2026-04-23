@@ -18,13 +18,11 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
             doc:name="Log-StockCheckStarted"
             message="#[%dw 2.0&#10;output json&#10;---&#10;'[PAPI][STOCK] Forwarding stock check | '&#10;                       ++ 'skuCount: '     ++ (sizeOf(payload.skus) as String)&#10;                       ++ ' | correlationId: ' ++ correlationId]"/>
 
-        <!-- Store request before HTTP call overwrites payload -->
         <set-variable
             variableName="requestedSkus"
             value="#[payload.skus]"
             doc:name="Var-StoreStockRequest"/>
 
-        <!-- Forward to System API — no transformation needed -->
 		<flow-ref doc:name="Flow Reference" doc:id="cab2fba4-9bcc-4eaa-ac60-7b344118df23" name="stock-validation-PAPI-subFlow"/>
 		<http:request
             config-ref="SystemAPI_Request_Config"
