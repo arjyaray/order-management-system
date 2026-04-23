@@ -1,0 +1,315 @@
+{
+  "info": {
+    "_postman_id": "057fb1ec-76ad-46a1-b99a-cca2062b9e8b",
+    "name": "Order Management System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "52027574",
+    "_collection_link": "https://go.postman.co/collection/52027574-057fb1ec-76ad-46a1-b99a-cca2062b9e8b?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "/stock/availability",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "correlationId",
+                "value": "amanraytest",
+                "type": "text"
+              },
+              {
+                "key": "orderChannel",
+                "value": "MOBILE_APP",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "\r\n    \"customer\": {\r\n        \"fullName\": \"Ravi Kumar\",\r\n        \"phoneNumber\": \"9876543210\",\r\n        \"email\": \"ravi.kumar@example.com\",\r\n        \"address\": {\r\n            \"line1\": \"Flat 1204, Lakeview Residency\",\r\n            \"line2\": \"Near City Mall\",\r\n            \"city\": \"Bengaluru\",\r\n            \"state\": \"KA\",\r\n            \"postalCode\": \"560102\"\r\n        }\r\n    }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:8081/system/customer",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "system",
+                "customer"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "/customers",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"fullName\": \"Arjya Ray\",\r\n  \"phoneNumber\": \"9937721438\",\r\n  \"email\": \"arjya.ray@gmail.com\",\r\n  \"address\": {\r\n    \"line1\": \"Flat 302, Kavya Nilayam\",\r\n    \"line2\": \"Parvath Nagar, Borabanda\",\r\n    \"city\": \"Hyderabad\",\r\n    \"state\": \"TS\",\r\n    \"postalCode\": \"500114\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:8081/system/customers",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "system",
+                "customers"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "/orders",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"orderId\": \"ORD-20261014-000091\",\r\n    \"phoneNumber\": \"9876543210\",\r\n    \"sku\": \"MOB-IPH15-128-BLK\",\r\n    \"quantity\": 1,\r\n    \"orderChannel\": \"MOBILE_APP\",\r\n    \"paymentMode\": \"UPI\",\r\n    \"deliveryPreference\": \"EXPRESS\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:8081/system/orders",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "system",
+                "orders"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "process",
+      "item": [
+        {
+          "name": "/stock/availibility",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"skus\": [\r\n        \"MOB-IPH15-128-BLK\",\r\n        \"LAP-DELL-5480\",\r\n        \"EAR-BT-SONY-WH\",\r\n        \"TV-SAM-55-4k\",\r\n        \"TAB-SAM-S9\"\r\n    ]\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:8082/process/stock/availability",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "process",
+                "stock",
+                "availability"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "/orders",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"skus\": [\r\n        \"MOB-IPH15-128-BLK\",\r\n        \"LAP-DELL-5480\",\r\n        \"EAR-BT-SONY-WH\",\r\n        \"TV-SAM-55-4k\",\r\n        \"TAB-SAM-S9\"\r\n    ]\r\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8082/process/orders",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "process",
+                "orders"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Experience",
+      "item": [
+        {
+          "name": "/stock/availability",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"skus\": [\r\n        \"MOB-IPH15-128-BLK\",\r\n        \"LAP-DELL-5480\",\r\n        \"EAR-BT-SONY-WH\",\r\n        \"TV-SAM-55-UHD\",\r\n        \"TAB-SAM-S9\"\r\n    ]\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:8083/experience/stock/availability",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "experience",
+                "stock",
+                "availability"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "/orders",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"customer\": {\r\n        \"fullName\": \"Arjya Ray\",\r\n        \"phoneNumber\": \"9937721438\",\r\n        \"email\": \"arjya.ray@gmail.com\",\r\n        \"address\": {\r\n            \"line1\": \"Kavya Nilayam\",\r\n            \"line2\": \"Parvath Nagar\",\r\n            \"city\": \"Hyderabad\",\r\n            \"state\": \"TS\",\r\n            \"postalCode\": \"500114\"\r\n        }\r\n    },\r\n    \"orderChannel\": \"WEB_APP\",\r\n    \"paymentMode\": \"NETBANKING\",\r\n    \"items\": [\r\n        {\r\n            \"sku\": \"EAR-BT-SONY-WH\",\r\n            \"quantity\": 1\r\n        },\r\n        {\r\n            \"sku\": \"LAP-DELL-5480\",\r\n            \"quantity\": 1\r\n        }\r\n    ],\r\n    \"deliveryPreference\": \"EXPRESS\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:8083/experience/orders",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "experience",
+                "orders"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "cloudHub /stock",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "client_id",
+            "value": "{{client_id}}",
+            "type": "text"
+          },
+          {
+            "key": "client_secret",
+            "value": "{{client_secret}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"skus\": [\r\n        \"MOB-IPH15-128-BLK\",\r\n        \"LAP-DELL-5480\",\r\n        \"EAR-BT-SONY-WH\",\r\n        \"TV-SAM-55-UHD\",\r\n        \"TAB-SAM-S9\"\r\n    ]\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{public_url}}/experience/stock/availability",
+          "host": [
+            "{{public_url}}"
+          ],
+          "path": [
+            "experience",
+            "stock",
+            "availability"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "cloudHub /orders",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "client_id",
+            "value": "{{client_id}}",
+            "type": "text"
+          },
+          {
+            "key": "client_secret",
+            "value": "{{client_secret}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"skus\": [\r\n        \"MOB-IPH15-128-BLK\",\r\n        \"LAP-DELL-5480\",\r\n        \"EAR-BT-SONY-WH\",\r\n        \"TV-SAM-55-UHD\",\r\n        \"TAB-SAM-S9\"\r\n    ]\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{public_url}}/experience/stock/availability",
+          "host": [
+            "{{public_url}}"
+          ],
+          "path": [
+            "experience",
+            "stock",
+            "availability"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

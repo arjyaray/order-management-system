@@ -1,0 +1,40 @@
+{
+	"id": "912622ba-cc3c-40d9-8ece-0527a91c5144",
+	"name": "CLoudHub BBD",
+	"values": [
+		{
+			"key": "public_url",
+			"value": "",
+			"type": "default",
+			"enabled": true
+		},
+		{
+			"key": "business_client_id",
+			"value": "",
+			"type": "default",
+			"enabled": true
+		},
+		{
+			"key": "business_client_secret",
+			"value": "",
+			"type": "default",
+			"enabled": true
+		},
+		{
+			"key": "client_id",
+			"value": "",
+			"type": "default",
+			"enabled": true
+		},
+		{
+			"key": "client_secret",
+			"value": "",
+			"type": "default",
+			"enabled": true
+		}
+	],
+	"color": 240,
+	"_postman_variable_scope": "environment",
+	"_postman_exported_at": "2026-04-23T07:16:23.247Z",
+	"_postman_exported_using": "Postman/11.87.2"
+}
