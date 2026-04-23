@@ -93,9 +93,6 @@ output application/json
 }]]]></db:input-parameters>
     </db:update>
 
-    <!-- STEP 2: Store rows affected -->
-
-    <!-- STEP 3: Only insert order if stock was decremented -->
     <choice doc:name="Choice-WasStockDecremented">
 
         <when expression="#[payload.affectedRows &gt; 0]">
