@@ -48,9 +48,24 @@ The **Order Management System (OMS)** is a MuleSoft-based API project built for 
   "phoneNumber": "9876543210",
   "requestStatus": "PARTIAL_SUCCESS",
   "itemResults": [
-    { "sku": "MOB-IPH15-128-BLK", "quantity": 1, "status": "Order Placed", "orderId": "ORD-20261012-000091" },
-    { "sku": "LAP-DELL-5480",     "quantity": 2, "status": "Sorry, not placed" },
-    { "sku": "EAR-BT-SONY-WH",   "quantity": 1, "status": "Order Placed", "orderId": "ORD-20261012-000092" }
+    {
+      "sku": "MOB-IPH15-128-BLK",
+      "quantity": 1,
+      "status": "Order Placed",
+      "orderId": "ORD-20261012-000091"
+    },
+    {
+      "sku": "LAP-DELL-5480",
+      "quantity": 2,
+      "status": "Sorry, not placed",
+      "reason": "Requested Quantity > Available Quantity"
+    },
+    {
+      "sku": "INVALID-SKU-999",
+      "quantity": 1,
+      "status": "Sorry, not placed",
+      "reason": "Sku not available to order"
+    }
   ]
 }
 ```
@@ -412,6 +427,32 @@ Global files
 
 ### Key Implementation Details
 
+#### Stock Decision Logic — 3-Level Choice
+
+```
+foreach item
+    │
+    ├── FindItemStock transform
+    │   vars.itemStock = matching stock entry OR null
+    │
+    ├── WHEN: itemStock != null (SKU exists in inventory)
+    │   │
+    │   ├── WHEN: availableQty >= requestedQty
+    │   │   → Generate orderId
+    │   │   → Call SAPI /orders
+    │   │   → IF success:true  → "Order Placed" + orderId
+    │   │   → IF success:false → "Sorry, not placed"
+    │   │                        reason: race condition
+    │   │
+    │   └── OTHERWISE: availableQty < requestedQty
+    │       → "Sorry, not placed"
+    │       → reason: "Requested Quantity > Available Quantity"
+    │
+    └── OTHERWISE: itemStock == null (SKU not in DB)
+        → "Sorry, not placed"
+        → reason: "Sku not available to order"
+```
+
 #### Atomic Stock Decrement (Race Condition Prevention)
 
 ```sql
@@ -458,6 +499,15 @@ ON DUPLICATE KEY UPDATE
 ```
 
 `phoneNumber` is the unique key. Existing customers are updated automatically — no separate GET needed.
+
+#### itemResults Structure
+
+| Scenario | status | orderId | reason |
+|---|---|---|---|
+| Stock available + placed | `Order Placed` | ✅ present | ❌ absent |
+| Race condition failure | `Sorry, not placed` | ❌ absent | `Rare Condition Failure: Sku out of stock` |
+| Quantity insufficient | `Sorry, not placed` | ❌ absent | `Requested Quantity > Available Quantity` |
+| SKU not in inventory | `Sorry, not placed` | ❌ absent | `Sku not available to order` |
 
 #### Stock Response — Edge Cases
 
@@ -911,6 +961,8 @@ Validates client_id + client_secret headers
 | 6 | PAPI and SAPI are not exposed publicly — protected by network isolation |
 | 7 | `orderChannel` accepts `MOBILE_APP` and `WEB_APP` values |
 | 8 | All APIs communicate using `application/json` media type |
+| 9 | SKU not found in inventory table returns `status: "Sorry, not placed"` with `reason: "Sku not available to order"` — not thrown as a hard error, allowing partial fulfilment of the rest of the order |
+| 10 | `reason` field is included in all failed item results to distinguish between out-of-stock, insufficient quantity, and unknown SKU scenarios |
 
 ### Limitations
 
