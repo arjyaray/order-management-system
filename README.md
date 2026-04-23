@@ -71,7 +71,14 @@ The **Order Management System (OMS)** is a MuleSoft-based API project built for 
 ```
 
 ---
+## Live API Endpoints (CloudHub)
 
+| API | Public URL |
+|---|---|
+| Experience API |   https://order-management-exp-api-8ypb94.5sc6y6-2.usa-e2.cloudhub.io |
+| Process API |   https://order-management-process-api-8ypb94.5sc6y6-1.usa-e2.cloudhub.io |
+| System API | https://order-management-db-sapi-8ypb94.5sc6y6-3.usa-e2.cloudhub.io |
+---
 ## 🏗 Architecture
 
 This project follows **MuleSoft API-Led Connectivity** with 3 distinct layers:
